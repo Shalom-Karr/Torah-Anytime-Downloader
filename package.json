@@ -1,6 +1,6 @@
 {
   "name": "torah-anytime-downloader",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Desktop app + local proxy for TorahAnytime with a built-in, client-side lecture downloader.",

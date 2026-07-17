@@ -1,0 +1,91 @@
+name: Release
+
+# Builds the Windows desktop app (Tauri) and publishes a GitHub release with the
+# installers. Trigger manually (Actions -> Release -> Run workflow), or by pushing
+# a v* tag. The version comes from the workflow input, the pushed tag, or
+# package.json (in that order) — keep package.json and src-tauri/tauri.conf.json
+# in sync, since the bundle file names use the tauri.conf.json version.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.1.0 (defaults to package.json)"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version + tag
+        id: ver
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            V="${GITHUB_REF#refs/tags/v}"
+          else
+            V="$(node -p "require('./package.json').version")"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "tag=v$V" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$V"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build proxy sidecar
+        run: npm run build:sidecar
+
+      - name: Build desktop app + installers
+        run: npm run tauri build
+
+      - name: Stage installers with stable names
+        shell: bash
+        run: |
+          mkdir -p release
+          cp src-tauri/target/release/bundle/nsis/*-setup.exe "release/Torah-Anytime-Downloader-Setup.exe"
+          cp src-tauri/target/release/bundle/msi/*_x64_en-US.msi "release/Torah-Anytime-Downloader-${{ steps.ver.outputs.version }}-x64.msi"
+          ls -la release
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          NOTES="Automated CI build. Desktop app + local proxy for TorahAnytime with a built-in, seekable lecture downloader — pick a resolution and it saves a flat, seekable MP4 (or MP3). Keeps playing in the background when the window is closed (system tray), locked to localhost, and trackers/ads/donation widgets are blocked; works behind TLS-intercepting content filters. Download **Torah-Anytime-Downloader-Setup.exe** and run it. Personal, noncommercial use only (PolyForm Noncommercial 1.0.0)."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG exists — replacing assets."
+            gh release upload "$TAG" release/*.exe release/*.msi --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            echo "Creating release $TAG."
+            gh release create "$TAG" release/*.exe release/*.msi \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Torah Anytime Downloader $TAG" \
+              --notes "$NOTES"
+          fi
