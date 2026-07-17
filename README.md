@@ -25,12 +25,19 @@ page.
 ### 1. Desktop app (Windows)
 
 Install and run — the app starts its own local proxy and shows TorahAnytime in a
-native window.
+native window. It's also just a good way to use TorahAnytime as a desktop app.
 
 - Grab the installer from **Releases** (`…_x64-setup.exe` or the `.msi`), or build
   it yourself (see [Building](#building-from-source)).
 - Launch **Torah Anytime Downloader**. It spawns a bundled Node proxy on
-  `127.0.0.1:8787` and loads the site. Closing the window stops the proxy.
+  `127.0.0.1:8787` and loads the site.
+- **Closing the window hides it to the system tray and keeps playing** — so a
+  shiur keeps going in the background. Click the tray icon to bring the window
+  back, or right-click it and choose **Quit** to actually exit (which stops the
+  proxy).
+- The window is **locked to localhost**: any link to another domain is
+  transparently re-opened through the local proxy, so the app never leaves your
+  machine's own proxy.
 
 ### 2. Local web app (any OS, no build)
 
@@ -99,7 +106,14 @@ progressive-MP4 transmuxer). Everything runs on-device.
 A [Tauri](https://tauri.app) app. On launch, the Rust shell spawns the proxy as a
 **sidecar** — a copy of the Node runtime running the esbuild-bundled
 `server.cjs` — on `127.0.0.1:8787`, and the window loads it. The sidecar is
-killed when the app exits.
+killed when the app fully quits.
+
+The shell also (1) **locks the webview to localhost** — an `on_navigation` guard
+rewrites any external URL to `http://127.0.0.1:8787/__ta/<host>/…` so navigation
+can never leave the proxy; and (2) **closes to the system tray and keeps
+playing** — the window's X hides instead of destroying the webview, and Chromium's
+background-throttling is disabled (`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`) so
+audio/video doesn't freeze while hidden. Quit from the tray to exit for real.
 
 ## Building from source
 
