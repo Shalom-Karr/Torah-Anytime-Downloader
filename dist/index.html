@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Torah Anytime Downloader</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: radial-gradient(ellipse at top, #1a1d2e, #0a0b14 70%);
+      color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.1rem;
+    }
+    .spin { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,.14);
+      border-top-color: #7c5fff; border-radius: 50%; animation: s .9s linear infinite; }
+    @keyframes s { to { transform: rotate(360deg); } }
+    #msg { color: #8a92b0; font-size: .95rem; }
+    h1 { font-weight: 200; margin: 0; font-size: 1.5rem;
+      background: linear-gradient(135deg, #fff, #a8b0c8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  </style>
+</head>
+<body>
+  <h1>Torah Anytime</h1>
+  <div class="spin"></div>
+  <div id="msg">Starting…</div>
+  <script>
+    var TARGET = "http://127.0.0.1:8787/";
+    var tries = 0;
+    function poll() {
+      tries++;
+      fetch(TARGET, { method: "HEAD", cache: "no-store" })
+        .then(function () { location.href = TARGET; })
+        .catch(function () {
+          if (tries > 200) { document.getElementById("msg").textContent = "Could not start the local proxy."; return; }
+          setTimeout(poll, 200);
+        });
+    }
+    poll();
+  </script>
+</body>
+</html>

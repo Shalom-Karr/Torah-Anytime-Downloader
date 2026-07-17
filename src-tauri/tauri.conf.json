@@ -1,0 +1,29 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Torah Anytime Downloader",
+  "version": "1.0.0",
+  "identifier": "dev.shalomkarr.torah-anytime-downloader",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://127.0.0.1:8787"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": ["binaries/ta-proxy"],
+    "resources": ["sidecar/server.cjs"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
