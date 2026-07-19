@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Torah Anytime — Settings</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: radial-gradient(ellipse at top, #1a1d2e, #0a0b14 70%);
+      color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      padding: 1.4rem 1.6rem 1.6rem;
+    }
+    h1 { font-weight: 200; margin: 0 0 .2rem; font-size: 1.35rem;
+      background: linear-gradient(135deg, #fff, #a8b0c8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .ver { color: #8a92b0; font-size: .85rem; margin-bottom: 1.1rem; }
+    .card { background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px; padding: 1rem 1.1rem; margin-bottom: 1rem; }
+    .card h2 { margin: 0 0 .7rem; font-size: .95rem; font-weight: 600; color: #c7cde0; }
+    label.row { display: flex; align-items: center; gap: .55rem; margin: .55rem 0; font-size: .92rem; cursor: pointer; }
+    .portrow { display: flex; align-items: center; gap: .6rem; margin: .55rem 0; font-size: .92rem; }
+    input[type="number"] { width: 6.5rem; background: #12141f; color: #e8eaf0;
+      border: 1px solid rgba(255,255,255,.15); border-radius: 6px; padding: .35rem .5rem; font-size: .92rem; }
+    input[type="checkbox"] { accent-color: #7c5fff; width: 1rem; height: 1rem; }
+    button { background: #7c5fff; color: #fff; border: 0; border-radius: 7px;
+      padding: .45rem .95rem; font-size: .9rem; cursor: pointer; }
+    button:hover { background: #8d73ff; }
+    button:disabled { opacity: .5; cursor: default; }
+    button.ghost { background: rgba(255,255,255,.08); }
+    button.ghost:hover { background: rgba(255,255,255,.14); }
+    .hint { color: #8a92b0; font-size: .8rem; margin: .5rem 0 0; }
+    #updStatus { font-size: .92rem; margin: 0 0 .7rem; color: #c7cde0; }
+    #updStatus.good { color: #7fe0a7; }
+    #updStatus.avail { color: #ffd479; }
+    #updStatus.err { color: #ff8a8a; }
+    .btnrow { display: flex; gap: .6rem; align-items: center; }
+    #saved { color: #7fe0a7; font-size: .85rem; visibility: hidden; }
+  </style>
+</head>
+<body>
+  <h1>Torah Anytime Downloader</h1>
+  <div class="ver">Version <span id="ver">…</span></div>
+
+  <div class="card">
+    <h2>Updates</h2>
+    <p id="updStatus">Updates are downloaded from the GitHub releases page.</p>
+    <div class="btnrow">
+      <button id="updCheck" class="ghost">Check for updates</button>
+      <button id="updInstall" style="display:none">Install update</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="portrow">
+      <span>Proxy port</span>
+      <input id="port" type="number" min="1024" max="65535" step="1">
+    </div>
+    <label class="row"><input id="tray" type="checkbox">
+      Keep playing in the background when the window is closed</label>
+    <label class="row"><input id="autoupd" type="checkbox">
+      Check for updates when the app starts</label>
+    <div class="btnrow" style="margin-top:.8rem">
+      <button id="save">Save</button>
+      <span id="saved">Saved</span>
+    </div>
+    <p class="hint">If the port is taken, the app automatically uses the next free one.
+      Port changes take effect the next time the app starts.</p>
+  </div>
+
+  <script>
+    var T = window.__TAURI__ || null;
+    var updateUrl = null;
+
+    function invoke(cmd, args) {
+      if (!T) return Promise.reject(new Error("Not running inside the app"));
+      return T.core.invoke(cmd, args);
+    }
+    function el(id) { return document.getElementById(id); }
+    function setStatus(text, cls) {
+      var s = el("updStatus");
+      s.textContent = text;
+      s.className = cls || "";
+    }
+
+    function loadAll() {
+      invoke("app_version").then(function (v) { el("ver").textContent = v; }).catch(function () {});
+      invoke("get_settings").then(function (s) {
+        el("port").value = s.startPort;
+        el("tray").checked = s.closeToTray;
+        el("autoupd").checked = s.autoCheckUpdates;
+      }).catch(function () {});
+    }
+
+    el("save").onclick = function () {
+      var port = parseInt(el("port").value, 10);
+      if (!(port >= 1024 && port <= 65535)) { alert("Port must be between 1024 and 65535."); return; }
+      invoke("save_settings", { settings: {
+        startPort: port,
+        closeToTray: el("tray").checked,
+        autoCheckUpdates: el("autoupd").checked
+      }}).then(function () {
+        el("saved").style.visibility = "visible";
+        setTimeout(function () { el("saved").style.visibility = "hidden"; }, 1800);
+      }).catch(function (e) { alert("Could not save: " + e); });
+    };
+
+    function doCheck() {
+      setStatus("Checking for updates…");
+      el("updCheck").disabled = true;
+      el("updInstall").style.display = "none";
+      invoke("check_update").then(function (info) {
+        el("updCheck").disabled = false;
+        if (info.hasUpdate && info.downloadUrl) {
+          updateUrl = info.downloadUrl;
+          setStatus("Version " + info.latest + " is available (you have " + info.current + ").", "avail");
+          var b = el("updInstall");
+          b.textContent = "Install v" + info.latest;
+          b.style.display = "";
+        } else if (info.hasUpdate) {
+          setStatus("Version " + info.latest + " is available — download it from the GitHub releases page.", "avail");
+        } else {
+          setStatus("You're up to date (v" + info.current + ").", "good");
+        }
+      }).catch(function (e) {
+        el("updCheck").disabled = false;
+        setStatus("Update check failed: " + e, "err");
+      });
+    }
+
+    el("updCheck").onclick = doCheck;
+    el("updInstall").onclick = function () {
+      if (!updateUrl) return;
+      el("updInstall").disabled = true;
+      el("updCheck").disabled = true;
+      setStatus("Downloading the update — the installer will open and this app will close…");
+      invoke("install_update", { url: updateUrl }).catch(function (e) {
+        el("updInstall").disabled = false;
+        el("updCheck").disabled = false;
+        setStatus("Update failed: " + e, "err");
+      });
+    };
+
+    loadAll();
+    if (T) T.event.listen("ta-check-updates", doCheck);
+    if (/[?&]check=1/.test(location.search)) doCheck();
+  </script>
+</body>
+</html>

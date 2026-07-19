@@ -69,6 +69,20 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`TorahAnytime proxy running at http://${HOST}:${PORT}`);
+// Bind the requested port, or walk upward (8788, 8789, …) until a free one is
+// found — another instance or app may already own the start port. The desktop
+// shell reads the "running at" line to learn which port actually won.
+let port = PORT;
+server.on("listening", () => {
+  console.log(`TorahAnytime proxy running at http://${HOST}:${port}`);
 });
+server.on("error", (e) => {
+  if (!server.listening && e && e.code === "EADDRINUSE" && port < 65535) {
+    port += 1;
+    server.listen(port, HOST);
+  } else {
+    console.error("proxy failed to start: " + ((e && e.stack) || e));
+    process.exit(1);
+  }
+});
+server.listen(port, HOST);

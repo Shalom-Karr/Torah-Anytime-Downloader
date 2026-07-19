@@ -24,18 +24,12 @@
   <div class="spin"></div>
   <div id="msg">Starting…</div>
   <script>
-    var TARGET = "http://127.0.0.1:8787/";
-    var tries = 0;
-    function poll() {
-      tries++;
-      fetch(TARGET, { method: "HEAD", cache: "no-store" })
-        .then(function () { location.href = TARGET; })
-        .catch(function () {
-          if (tries > 200) { document.getElementById("msg").textContent = "Could not start the local proxy."; return; }
-          setTimeout(poll, 200);
-        });
-    }
-    poll();
+    // The desktop shell watches the proxy's stdout for the port it actually
+    // bound (it walks up from the configured one if taken) and navigates this
+    // window there. If that never happens, the proxy failed to start.
+    setTimeout(function () {
+      document.getElementById("msg").textContent = "Could not start the local proxy.";
+    }, 45000);
   </script>
 </body>
 </html>

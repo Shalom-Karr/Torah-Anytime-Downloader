@@ -30,7 +30,13 @@ native window. It's also just a good way to use TorahAnytime as a desktop app.
 - Grab the installer from **Releases** (`…_x64-setup.exe` or the `.msi`), or build
   it yourself (see [Building](#building-from-source)).
 - Launch **Torah Anytime Downloader**. It spawns a bundled Node proxy on
-  `127.0.0.1:8787` and loads the site.
+  `127.0.0.1:8787` and loads the site. If that port is taken it automatically
+  walks upward (8788, 8789, …) until one binds, and the window follows.
+- The tray menu has **Settings…** (proxy start port, close-to-tray behavior,
+  automatic update checks — stored in the app config dir) and **Check for
+  Updates…**, which downloads the newest installer from GitHub Releases and
+  runs it. Update traffic goes through the local proxy, so it also works
+  behind TLS-intercepting content filters.
 - **Closing the window hides it to the system tray and keeps playing** — so a
   shiur keeps going in the background. Click the tray icon to bring the window
   back, or right-click it and choose **Quit** to actually exit (which stops the
@@ -47,8 +53,9 @@ Requires **Node.js 18+** (`node --version`). From this folder:
 node server.mjs        # or: npm start
 ```
 
-Then open **http://localhost:8787**. Use a different port with
-`PORT=3000 node server.mjs` (macOS/Linux) or `$env:PORT=3000; node server.mjs`
+Then open **http://localhost:8787**. If 8787 is taken it walks up to the next
+free port — the console prints the URL it actually bound. Use a different start
+port with `PORT=3000 node server.mjs` (macOS/Linux) or `$env:PORT=3000; node server.mjs`
 (PowerShell). There are **no dependencies to install** for this mode.
 
 ## Downloading a lecture
@@ -108,12 +115,20 @@ A [Tauri](https://tauri.app) app. On launch, the Rust shell spawns the proxy as 
 `server.cjs` — on `127.0.0.1:8787`, and the window loads it. The sidecar is
 killed when the app fully quits.
 
+The proxy binds the configured start port (default 8787) or walks upward until
+one is free, and prints `proxy running at http://127.0.0.1:<port>`; the shell
+parses that line and navigates the window to whatever port actually won.
+
 The shell also (1) **locks the webview to localhost** — an `on_navigation` guard
-rewrites any external URL to `http://127.0.0.1:8787/__ta/<host>/…` so navigation
-can never leave the proxy; and (2) **closes to the system tray and keeps
+rewrites any external URL to `http://127.0.0.1:<port>/__ta/<host>/…` so navigation
+can never leave the proxy; (2) **closes to the system tray and keeps
 playing** — the window's X hides instead of destroying the webview, and Chromium's
 background-throttling is disabled (`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`) so
-audio/video doesn't freeze while hidden. Quit from the tray to exit for real.
+audio/video doesn't freeze while hidden (configurable in Settings); and (3) has a
+**Settings + updater window** (tray → Settings… / Check for Updates…) — settings
+live in `settings.json` in the app config dir, and updates are fetched from
+GitHub Releases *through the local proxy* (so they work behind TLS-intercepting
+filters), then the downloaded installer is launched and the app exits.
 
 ## Building from source
 
@@ -150,7 +165,7 @@ PNG, and run `npx tauri icon <that.png>`.
 proxy.mjs        the reverse proxy + injected downloader (the core)
 remux.mjs        the fMP4/TS -> progressive-MP4 transmuxer, served to the page
 server.mjs       Node http server -> 127.0.0.1:8787 (standalone + sidecar)
-dist/            loading page shown by the desktop window until the proxy is up
+dist/            loading page shown until the proxy is up + the settings/updater page
 scripts/         build-sidecar.mjs, remux-taRx.js (transmuxer source)
 src-tauri/       the Tauri desktop shell (Rust) + icons
 ```
