@@ -199,6 +199,12 @@ function resolveTarget(inUrl) {
     path = inUrl.pathname;
   }
   if (!/^[a-z0-9.\-]+(?::\d+)?$/i.test(host) || host.indexOf(".") === -1) return null;
+  // Loopback and `*.localhost` are never upstream targets — they're this
+  // machine (the Tauri shell serves index.html from http://tauri.localhost on
+  // Windows). Treat them as "no target" so the caller redirects to the proxy
+  // root instead of failing DNS with an opaque "Upstream fetch failed".
+  const bare = host.replace(/:\d+$/, "").toLowerCase();
+  if (bare === "localhost" || bare.endsWith(".localhost") || /^127\./.test(bare)) return null;
   return "https://" + host + path + inUrl.search;
 }
 

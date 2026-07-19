@@ -346,8 +346,17 @@ pub fn run() {
                     if scheme == "tauri" || scheme == "data" || scheme == "blob" || scheme == "about" {
                         return true;
                     }
-                    let host = url.host_str().unwrap_or("");
-                    if host == "127.0.0.1" || host == "localhost" {
+                    // The app's own asset origin is `tauri://localhost` on
+                    // macOS/Linux but `http(s)://tauri.localhost` on Windows, so the
+                    // scheme check above misses it there: index.html itself looked
+                    // "external" and got re-navigated to /__ta/tauri.localhost, which
+                    // the proxy then tried to resolve upstream (502, no such host).
+                    let host = url.host_str().unwrap_or("").to_ascii_lowercase();
+                    if host == "127.0.0.1"
+                        || host == "::1"
+                        || host == "localhost"
+                        || host.ends_with(".localhost")
+                    {
                         return true;
                     }
                     // Any external http(s) target: rewrite through the proxy and
