@@ -51,10 +51,22 @@ pub fn run() {
                 .join("sidecar")
                 .join("server.cjs");
 
+            // resource_dir() returns a \\?\-verbatim path; Node (e.g. the 20.x
+            // runtime CI bundles) can't load a main module through that prefix
+            // (EISDIR in resolveMainPath), so hand it a plain path.
+            let script = script.to_string_lossy().to_string();
+            let script = if let Some(rest) = script.strip_prefix(r"\\?\UNC\") {
+                format!(r"\\{}", rest)
+            } else if let Some(rest) = script.strip_prefix(r"\\?\") {
+                rest.to_string()
+            } else {
+                script
+            };
+
             let (mut rx, child) = app
                 .shell()
                 .sidecar("ta-proxy")?
-                .args([script.to_string_lossy().to_string(), PROXY_PORT.to_string()])
+                .args([script, PROXY_PORT.to_string()])
                 .spawn()?;
 
             app.state::<Sidecar>().0.lock().unwrap().replace(child);
